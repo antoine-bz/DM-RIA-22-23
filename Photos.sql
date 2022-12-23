@@ -11,7 +11,7 @@
     `hauteur` int(11) NOT NULL,
     `type` varchar(255) NOT NULL,
     `longitude` float NOT NULL,
-    `altitude` float NOT NULL,
+    `latitude` float NOT NULL,
     `adresse` varchar(1000) NOT NULL,
     PRIMARY KEY (`id`)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;

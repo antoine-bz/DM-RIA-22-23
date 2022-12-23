@@ -93,10 +93,9 @@ if (isset($_REQUEST["action"]))
 
 				//Lecture des méta-données exif
 				$exif = exif_read_data("./$nomRep/$name");
-				
-				//Lors de l'ajout d'une image, les méta-données exif sont lues et stockées dans une base de données
-				//si l'image existe déjà, on supprime les anciennes méta-données (supprimerPhoto($name,$nomRep)) et on ajoute les nouvelles
-				if(photoExiste($name,$nomRep)){
+
+				if(photoExiste($name,$nomRep))
+				{
 					supprimerPhoto($name,$nomRep);
 				}
 
@@ -104,12 +103,14 @@ if (isset($_REQUEST["action"]))
 				
 				$photo =getPhoto($name,$nomRep)[0];
 				
-				//La date de la prise de photo est ajoutée en filigrane par dessus l'image, dans le coin en bas à droite.
-				//On récupère la date de la photo si elle existe
-				if($photo['date']!=null){
+				if($photo['date']!=null)
+				{
 					ajouterDatePhoto($type,"./$nomRep/$name",$photo['date']);	
 				}		
-				ajouterAdressePhoto($type,"./$nomRep/$name",$photo['adresse']);
+				if ($photo['adresse']!=null)
+				{
+					ajouterAdressePhoto($type,"./$nomRep/$name",$photo['adresse']);
+				}
 
 /*************************************************************************************************/
 /*************************************************************************************************/
@@ -164,6 +165,7 @@ if (isset($_REQUEST["action"]))
 						}
 					}
 				}
+				supprimerPhotos($nomRep);
 				supprimerRepertoire($nomRep);
 				rmdir("./$nomRep");
 				$nomRep = false;
@@ -250,20 +252,15 @@ function stockerMetaDonnees($nom, $nomRep, $exif)
 		$date = "0000-00-00 00:00:00";
 	}
 	$date = date("Y-m-d H:i:s", strtotime($date));
-	//On récupère la largeur de l'image
 	$largeur = $exif['COMPUTED']['Width'];
-
-	//On récupère la hauteur de l'image
 	$hauteur = $exif['COMPUTED']['Height'];
-	//On récupère la latitude de l'image si elle existe sinon on met 0
 	if(isset($exif['GPSLatitude']))
 	{
 		//on convertit la latitude de exif qui est en DMS en degrés décimaux
 		$latitude = convertirDMSenDD($exif['GPSLatitude'], $exif['GPSLatitudeRef']);
-		//on convertit la longitude de exif qui est en DMS en degrés décimaux
+		// on convertit la longitude de exif qui est en DMS en degrés décimaux
 		$longitude = convertirDMSenDD($exif['GPSLongitude'], $exif['GPSLongitudeRef']);
 		$adresse = getAdresseByGPS($latitude, $longitude);
-
 	}
 	else
 	{
@@ -271,15 +268,13 @@ function stockerMetaDonnees($nom, $nomRep, $exif)
 		$latitude = null;
 		$adresse = null;
 	}
-	//On recupere l'id du répertoire
 	$idRepertoire= getIdRepertoire($nomRep);
-
 	$type=pathinfo($nom, PATHINFO_EXTENSION);
-	//On construit la requête SQL
 	$Result= insererPhoto($nom, $date, $largeur, $hauteur, $latitude, $longitude, $idRepertoire, $adresse,$type);
 }
 
-function ajouterDatePhoto($type,$fichier,$date){
+function ajouterDatePhoto($type,$fichier,$date)
+{
 	//La date de la prise de photo est ajoutée en filigrane par dessus l'image, dans le coin en bas à droite avec une largeur de 5% de la largeur de l'image
 	// $type : type de l'image
 	// $fichier : nom du fichier
@@ -293,21 +288,14 @@ function ajouterDatePhoto($type,$fichier,$date){
 		case "gif" : $im =  imagecreatefromgif ($fichier);break;		
 	}
 	
-	//On récupère la couleur de la date
 	$couleur = imagecolorallocatealpha($im, 255, 255, 255, 50);
-	//On récupère la taille de l'image
 	$size = getimagesize($fichier);
-	//On récupère la police
 	$police = "arial.ttf";
-	//On récupère la largeur de l'image
 	$largeur = $size[0];
-	//On récupère la hauteur de l'image
 	$hauteur = $size[1];
-
-	//On calcule la taille de la police
-	$taillePolice = ($largeur/(strlen($date)))*0.25;
-	//On calcule la position de la date
-	$positionX = $largeur - $taillePolice*strlen($date);
+	//$taillePolice = ($largeur/(strlen($date)))*0.25;
+	$taillePolice = ($largeur/100);
+	$positionX = $largeur - ($taillePolice)*strlen($date);
 	$positionY = $hauteur - $taillePolice;
 
 
@@ -327,7 +315,8 @@ function ajouterDatePhoto($type,$fichier,$date){
 
 }
 
-function convertirDMSenDD($coordinate, $hemisphere){
+function convertirDMSenDD($coordinate, $hemisphere)
+{
 	//Convertit la latitude ou la longitude de exif qui est en DMS en degrés décimaux
 	// $exifTps : tableau contenant les valeurs de la latitude ou de la longitude
 	// $exifRef : référence de la latitude ou de la longitude
@@ -353,18 +342,20 @@ function convertirDMSenDD($coordinate, $hemisphere){
 }
 
 
-function getAdresseByGPS($latitude, $longitude){
+function getAdresseByGPS($latitude, $longitude)
+{
 	//Récupère l'adresse à partir des coordonnées GPS
 	// $latitude : latitude de la photo
 	// $longitude : longitude de la photo
 
-	//On fait la requête à l'API de positionstack pour récupérer l'adresse
+	//  On fait la requête à l'API de positionstack pour récupérer l'adresse
 	$data= file_get_contents('http://api.positionstack.com/v1/reverse?access_key=dba7a09098fa39d9a5be8f4d2f23b0f0&query='.$latitude.','.$longitude);
 	return $adresse = json_decode($data)->data[0]->label;
 }
 
 
-function ajouterAdressePhoto($type,$fichier,$adresse){
+function ajouterAdressePhoto($type,$fichier,$adresse)
+{
 	//On affiche l'adresse de la photo dans le coin en bas à gauche avec une largeur de 5% de la largeur de l'image
 	// $type : type de l'image
 	// $fichier : nom du fichier
@@ -378,27 +369,21 @@ function ajouterAdressePhoto($type,$fichier,$adresse){
 		case "gif" : $im =  imagecreatefromgif ($fichier);break;		
 	}
 
-	//On récupère la couleur de la date
 	$couleur = imagecolorallocatealpha($im, 255, 255, 255, 50);
-	//On récupère la taille de l'image
-	$size = getimagesize($fichier);
-	//On récupère la police
-	$police = "arial.ttf";
-	//On récupère la largeur de l'image
-	$largeur = $size[0];
-	//On récupère la hauteur de l'image
-	$hauteur = $size[1];
 
-	//On calcule la taille de la police
-	$taillePolice = ($largeur/(strlen($adresse)))*0.5;
-	//On calcule la position de la date
+	$size = getimagesize($fichier);
+	$police = "arial.ttf";
+	$largeur = $size[0];
+	$hauteur = $size[1];
+	//$taillePolice = ($largeur/(strlen($adresse)))*0.5;
+	$taillePolice = ($largeur/100);
 	$positionX =$taillePolice ;
 	$positionY = $hauteur - $taillePolice;
 	
 	//On ajoute la date
 	imagettftext($im, $taillePolice, 0, $positionX, $positionY, $couleur, $police, $adresse);
 
-	//On enregistre l'image
+	// On enregistre l'image
 	switch($type)
 	{
 		case "jpeg" : imagejpeg($im,$fichier);break;
@@ -492,7 +477,12 @@ div div
 			// Pour éliminer les autres fichiers du menu déroulant, 
 			// on dispose de la fonction 'is_dir'
 			if (is_dir("./" . $fichier))
+			{
 				printf("<option value=\"$fichier\">$fichier</option>");
+				//Si le répertoire n'existe pas dans la base de données, on l'ajoute
+				if (!repertoireExiste($fichier)) insererRepertoire($fichier);
+			}
+
 		}
 	}
 	closedir($rep);
@@ -538,6 +528,9 @@ div div
 				{
 					$numImage++;
 
+					if(!isset(getPhoto($fichier,$nomRep)[0])){
+						stockerMetaDonnees($fichier, $nomRep, exif_read_data("./$nomRep/$fichier"));
+					}
 					$dataImg = getPhoto($fichier,$nomRep)[0];
 
 					// A compléter : récupérer le type d'une image, et sa taille 
@@ -584,17 +577,6 @@ div div
 	// A compléter : afficher un message lorsque le répertoire est vide
 	if ($numImage==0) echo "<h3>Aucune image dans le répertoire</h3>";
 
-?>
-
-<?php
-
-/*TODO:
-Galerie d'images géolocalisées
-On ajoutera les fonctionnalités suivantes :
-Lors de l'ajout d'une image, les méta-données exif sont lues et stockées dans une base de données. 
-La date de la prise de photo est ajoutée en filigrane par dessus l'image, dans le coin en bas à droite. Cette information est ajoutée au nom de l'image dans la galerie  
-Si l'image dispose de tags de géolocalisation, le serveur émet une requête vers une API de géolocalisation inverse de votre choix (consulter par exemple https://geekflare.com/fr/geolocation-ip-api/) et l'adresse correspondant à la localisation de l'image dans la base de données. Cette information est ajoutée à l'image en bas à gauche
-*/
 ?>
 
 
