@@ -87,7 +87,7 @@ if (isset($_REQUEST["action"]))
 				miniature($type,"./$nomRep/$name",200,"./$nomRep/thumbs/$name");
 
 /*************************************************************************************************/
-/********************************MODIFICATIONS POUR DM********************************************/
+/******************************* MODIFICATIONS POUR DM *******************************************/
 /*************************************************************************************************/
 
 
@@ -99,19 +99,17 @@ if (isset($_REQUEST["action"]))
 				if(photoExiste($name,$nomRep)){
 					supprimerPhoto($name,$nomRep);
 				}
-				stockerMetaDonnees($name, $nomRep, $exif,$type);		
+
+				stockerMetaDonnees($name, $nomRep, $exif);		
 				
-				$photo =getPhoto($name,$nomRep);
+				$photo =getPhoto($name,$nomRep)[0];
+				
 				//La date de la prise de photo est ajoutée en filigrane par dessus l'image, dans le coin en bas à droite.
 				//On récupère la date de la photo si elle existe
-				if($photo[0]['date']!=null){
-					ajouterDatePhoto($type,"./$nomRep/$name",$photo[0]['date']);	
+				if($photo['date']!=null){
+					ajouterDatePhoto($type,"./$nomRep/$name",$photo['date']);	
 				}		
-				
-				if($photo[0]['adresse']!=null){
-					ajouterAdressePhoto($type,"./$nomRep/$name",$photo[0]['adresse']);
-				}
-
+				ajouterAdressePhoto($type,"./$nomRep/$name",$photo['adresse']);
 
 /*************************************************************************************************/
 /*************************************************************************************************/
@@ -235,7 +233,7 @@ function miniature($type,$nom,$dw,$nomMin)
 
 
 
-function stockerMetaDonnees($nom, $nomRep, $exif,$type)
+function stockerMetaDonnees($nom, $nomRep, $exif)
 {
 	// Stocke les méta-données exif dans la base de données
 	// $nom : nom du fichier
@@ -245,14 +243,13 @@ function stockerMetaDonnees($nom, $nomRep, $exif,$type)
 	//On récupère la date de la photo si elle existe sinon on met 0
 	if(isset($exif['DateTimeOriginal']))
 	{
-		$date = $exif['DateTimeOriginal'];
-		$date = date("Y-m-d H:i:s", strtotime($date));
-		
+		$date = $exif['DateTimeOriginal'];		
 	}
 	else
 	{
-		$date = 0;
+		$date = "0000-00-00 00:00:00";
 	}
+	$date = date("Y-m-d H:i:s", strtotime($date));
 	//On récupère la largeur de l'image
 	$largeur = $exif['COMPUTED']['Width'];
 
@@ -270,24 +267,16 @@ function stockerMetaDonnees($nom, $nomRep, $exif,$type)
 	}
 	else
 	{
-		$longitude = 0;
-		$latitude = 0;
+		$longitude = null;
+		$latitude = null;
 		$adresse = null;
-	}
-	//On récupère l'altitude de l'image si elle existe
-	if(isset($exif['GPSAltitude']))
-	{
-		$altitude = $exif['GPSAltitude'];
-	}
-	else
-	{
-		$altitude = 0;
 	}
 	//On recupere l'id du répertoire
 	$idRepertoire= getIdRepertoire($nomRep);
-	//On construit la requête SQL
-	$Result= insererPhoto($nom, $date, $largeur, $hauteur, $latitude, $longitude, $altitude, $idRepertoire, $adresse,$type);
 
+	$type=pathinfo($nom, PATHINFO_EXTENSION);
+	//On construit la requête SQL
+	$Result= insererPhoto($nom, $date, $largeur, $hauteur, $latitude, $longitude, $idRepertoire, $adresse,$type);
 }
 
 function ajouterDatePhoto($type,$fichier,$date){
@@ -549,7 +538,7 @@ div div
 				{
 					$numImage++;
 
-					$dataImg = getPhoto($fichier,$nomRep)[0]; 
+					$dataImg = getPhoto($fichier,$nomRep)[0];
 
 					// A compléter : récupérer le type d'une image, et sa taille 
 					$width= $dataImg["largeur"];

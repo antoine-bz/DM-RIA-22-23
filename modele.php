@@ -24,8 +24,8 @@ function supprimerRepertoire($nom) {
   return SQLDelete($SQL);
 }
 
-function insererPhoto($nom, $date, $largeur, $hauteur, $latitude, $longitude, $altitude, $idRepertoire, $adresse,$type) {
-  $SQL="INSERT INTO Photos (nom, date, largeur, hauteur, latitude, longitude, altitude, idRep, adresse, type) VALUES ('$nom', '$date', '$largeur', '$hauteur', '$latitude', '$longitude', '$altitude', '$idRepertoire', '$adresse','$type')";
+function insererPhoto($nom, $date, $largeur, $hauteur, $latitude, $longitude, $idRepertoire, $adresse,$type) {
+  $SQL="INSERT INTO Photos (nom, date, largeur, hauteur, latitude, longitude, idRep, adresse,type) VALUES ('$nom', '$date', '$largeur', '$hauteur', '$latitude', '$longitude', '$idRepertoire', '$adresse','$type')";
   return SQLInsert($SQL);
 }
 

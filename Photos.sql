@@ -6,11 +6,10 @@
     `id` int(11) NOT NULL AUTO_INCREMENT,
     `idRep` int(11) NOT NULL,
     `nom` varchar(255) NOT NULL,
-    `date` varchar(255) NOT NULL,
+    `date` datetime NOT NULL,
     `largeur` int(11) NOT NULL,
     `hauteur` int(11) NOT NULL,
     `type` varchar(255) NOT NULL,
-    `latitude` float NOT NULL,
     `longitude` float NOT NULL,
     `altitude` float NOT NULL,
     `adresse` varchar(1000) NOT NULL,
@@ -31,6 +30,3 @@
     /*relation entre les photos et les répertoires*/
     ALTER TABLE `Photos`
     ADD CONSTRAINT `Photos_ibfk_1` FOREIGN KEY (`idRep`) REFERENCES `Repertoires` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
-    /*Insertion des données*/
-    INSERT INTO Repertoires (nom) VALUES ('tom');
