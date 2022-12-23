@@ -2,12 +2,7 @@
 
 //on inclut la bibliotheque sql
 include_once "modele.php";
-
-
-//Variables globales
-//Mettre ici votre clé API
-$apiKey= 'dba7a09098fa39d9a5be8f4d2f23b0f0';
-
+include_once "config.php";
 
 
 //Code de la page
@@ -374,10 +369,10 @@ function getAdresseByGPS($latitude, $longitude)
 	// $latitude : latitude de la photo
 	// $longitude : longitude de la photo
 
-	
+	global $apiKey;
 
 	//  On fait la requête à l'API de positionstack pour récupérer l'adresse
-	$data= file_get_contents('http://api.positionstack.com/v1/reverse?access_key='.$GLOBALS['apiKey'].'&query='.$latitude.','.$longitude);
+	$data= file_get_contents('http://api.positionstack.com/v1/reverse?access_key='.$apiKey.'&query='.$latitude.','.$longitude);
 	return $adresse = json_decode($data)->data[0]->label;
 }
 
@@ -524,7 +519,7 @@ div div
 					// Pour le DM : On récupère les métadonnées de l'image
 					$dataImg = getPhoto($fichier,$nomRep)[0];
 
-					
+
 					// A compléter : récupérer le type d'une image, et sa taille 
 					$width= $dataImg["largeur"];
 					$height= $dataImg["hauteur"]; 
