@@ -3,6 +3,14 @@
 //on inclut la bibliotheque sql
 include_once "modele.php";
 
+
+//Variables globales
+//Mettre ici votre clé API
+$apiKey= 'dba7a09098fa39d9a5be8f4d2f23b0f0';
+
+
+
+//Code de la page
 if (isset($_REQUEST["nomRep"])) 
 	$nomRep = $_REQUEST["nomRep"];
 else 
@@ -18,6 +26,8 @@ if (isset($_REQUEST["action"]))
 		{
 			// A compléter : Code de création d'un répertoire
 			mkdir("./" . $_GET["nomRep"]);
+
+			// Pour le DM : insérer le répertoire dans la base de données
 			insererRepertoire($_GET["nomRep"]);
 		}
 		break;
@@ -35,7 +45,10 @@ if (isset($_REQUEST["action"]))
 			// A compléter : Supprime aussi la miniature si elle existe					
 			unlink($nomRep . "/thumbs/" . $fichier);
 			
+
+			// Pour le DM : supprimer aussi les méta-données dans la base de données
 			supprimerPhoto($fichier,$nomRep);
+
 		}
 		break;
 
@@ -55,6 +68,8 @@ if (isset($_REQUEST["action"]))
 			if (file_exists("./$nomRep/thumbs/$fichier"))			
 				rename("./$nomRep/thumbs/$fichier","./$nomRep/thumbs/$nomFichier");
 			
+
+			// Pour le DM : renommer aussi les méta-données dans la base de données
 			renommerPhoto($fichier,$nomRep,$nomFichier);
 			
 		}
@@ -102,15 +117,9 @@ if (isset($_REQUEST["action"]))
 				stockerMetaDonnees($name, $nomRep, $exif);		
 				
 				$photo =getPhoto($name,$nomRep)[0];
+
 				
-				if($photo['date']!=null)
-				{
-					ajouterDatePhoto($type,"./$nomRep/$name",$photo['date']);	
-				}		
-				if ($photo['adresse']!=null)
-				{
-					ajouterAdressePhoto($type,"./$nomRep/$name",$photo['adresse']);
-				}
+				ajouterFiligrane($type,"./$nomRep/$name",$photo['date'],$photo['adresse']);	
 
 /*************************************************************************************************/
 /*************************************************************************************************/
@@ -165,8 +174,15 @@ if (isset($_REQUEST["action"]))
 						}
 					}
 				}
+
+ 
+				// Pour le DM : supprimer les photos de la base de données en fonction du répertoire
 				supprimerPhotos($nomRep);
+				// Pour le DM : supprimer le répertoire de la base de données
 				supprimerRepertoire($nomRep);
+
+
+
 				rmdir("./$nomRep");
 				$nomRep = false;
 			}
@@ -273,7 +289,7 @@ function stockerMetaDonnees($nom, $nomRep, $exif)
 	$Result= insererPhoto($nom, $date, $largeur, $hauteur, $latitude, $longitude, $idRepertoire, $adresse,$type);
 }
 
-function ajouterDatePhoto($type,$fichier,$date)
+function ajouterFiligrane($type,$fichier,$date,$adresse=null)
 {
 	//La date de la prise de photo est ajoutée en filigrane par dessus l'image, dans le coin en bas à droite avec une largeur de 5% de la largeur de l'image
 	// $type : type de l'image
@@ -294,13 +310,23 @@ function ajouterDatePhoto($type,$fichier,$date)
 	$largeur = $size[0];
 	$hauteur = $size[1];
 	//$taillePolice = ($largeur/(strlen($date)))*0.25;
-	$taillePolice = ($largeur/100);
-	$positionX = $largeur - ($taillePolice)*strlen($date);
-	$positionY = $hauteur - $taillePolice;
+	$taillePolice = ($largeur/75);
+
+	//position de la date
+	$positionXdate = $largeur - ($taillePolice)*strlen($date);
+	$positionYdate = $hauteur - $taillePolice;
+
+	//position de l'adresse
+	$positionXadresse =$taillePolice ;
+	$positionYadresse = $hauteur - $taillePolice;
 
 
 	//On ajoute la date
-	imagettftext($im, $taillePolice, 0, $positionX, $positionY, $couleur, $police, $date);
+	imagettftext($im, $taillePolice, 0, $positionXdate, $positionYdate, $couleur, $police, $date);
+
+	//on ajoute l'adresse
+	if($adresse!=null)
+		imagettftext($im, $taillePolice, 0, $positionXadresse, $positionYadresse, $couleur, $police, $adresse);
 	
 	//On enregistre l'image
 	switch($type)
@@ -348,51 +374,11 @@ function getAdresseByGPS($latitude, $longitude)
 	// $latitude : latitude de la photo
 	// $longitude : longitude de la photo
 
-	//  On fait la requête à l'API de positionstack pour récupérer l'adresse
-	$data= file_get_contents('http://api.positionstack.com/v1/reverse?access_key=dba7a09098fa39d9a5be8f4d2f23b0f0&query='.$latitude.','.$longitude);
-	return $adresse = json_decode($data)->data[0]->label;
-}
-
-
-function ajouterAdressePhoto($type,$fichier,$adresse)
-{
-	//On affiche l'adresse de la photo dans le coin en bas à gauche avec une largeur de 5% de la largeur de l'image
-	// $type : type de l'image
-	// $fichier : nom du fichier
-	// $adresse : adresse de la photo
-
-	//On récupère l'image
-	switch($type)
-	{
-		case "jpeg" : $im =  imagecreatefromjpeg ($fichier);break;
-		case "png" : $im =  imagecreatefrompng ($fichier);break;
-		case "gif" : $im =  imagecreatefromgif ($fichier);break;		
-	}
-
-	$couleur = imagecolorallocatealpha($im, 255, 255, 255, 50);
-
-	$size = getimagesize($fichier);
-	$police = "arial.ttf";
-	$largeur = $size[0];
-	$hauteur = $size[1];
-	//$taillePolice = ($largeur/(strlen($adresse)))*0.5;
-	$taillePolice = ($largeur/100);
-	$positionX =$taillePolice ;
-	$positionY = $hauteur - $taillePolice;
 	
-	//On ajoute la date
-	imagettftext($im, $taillePolice, 0, $positionX, $positionY, $couleur, $police, $adresse);
 
-	// On enregistre l'image
-	switch($type)
-	{
-		case "jpeg" : imagejpeg($im,$fichier);break;
-		case "png" : imagepng($im,$fichier);break;
-		case "gif" : imagegif($im,$fichier);break;		
-	}
-	//On détruit l'image
-	imagedestroy($im);
-
+	//  On fait la requête à l'API de positionstack pour récupérer l'adresse
+	$data= file_get_contents('http://api.positionstack.com/v1/reverse?access_key='.$GLOBALS['apiKey'].'&query='.$latitude.','.$longitude);
+	return $adresse = json_decode($data)->data[0]->label;
 }
 
 
@@ -479,7 +465,9 @@ div div
 			if (is_dir("./" . $fichier))
 			{
 				printf("<option value=\"$fichier\">$fichier</option>");
-				//Si le répertoire n'existe pas dans la base de données, on l'ajoute
+
+
+				// Pour le DM : Si le répertoire n'existe pas dans la base de données, on l'ajoute
 				if (!repertoireExiste($fichier)) insererRepertoire($fichier);
 			}
 
@@ -528,11 +516,15 @@ div div
 				{
 					$numImage++;
 
+					// Pour le DM : Si l'image n'existe pas dans la base de données, on l'ajoute
 					if(!isset(getPhoto($fichier,$nomRep)[0])){
 						stockerMetaDonnees($fichier, $nomRep, exif_read_data("./$nomRep/$fichier"));
 					}
+
+					// Pour le DM : On récupère les métadonnées de l'image
 					$dataImg = getPhoto($fichier,$nomRep)[0];
 
+					
 					// A compléter : récupérer le type d'une image, et sa taille 
 					$width= $dataImg["largeur"];
 					$height= $dataImg["hauteur"]; 
@@ -547,7 +539,9 @@ div div
 					echo "<div>$fichier \n";			
 					echo "<a href=\"?nomRep=$nomRep&fichier=$fichier&action=Supprimer\" >Supp</a>\n";
 					echo "<br />($width * $height $type)\n";
-					//La date de la prise de photo
+
+
+					// Pour le DM : On affiche la date de prise de vue de l'image
 					$date = $dataImg["date"];
 					echo "<br />$date\n";
 					echo "<br />\n";
