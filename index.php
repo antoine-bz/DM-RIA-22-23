@@ -318,8 +318,8 @@ function ajouterDatePhoto($type,$fichier,$date)
 function convertirDMSenDD($coordinate, $hemisphere)
 {
 	//Convertit la latitude ou la longitude de exif qui est en DMS en degrés décimaux
-	// $exifTps : tableau contenant les valeurs de la latitude ou de la longitude
-	// $exifRef : référence de la latitude ou de la longitude
+	// $coordinate : tableau contenant les valeurs de la latitude ou de la longitude
+	// $hemisphere : référence de la latitude ou de la longitude
 
 	//Source : https://stackoverflow.com/questions/2526304/php-extract-gps-exif-data
 
