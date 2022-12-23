@@ -28,5 +28,4 @@
 
 
     /*relation entre les photos et les répertoires*/
-    ALTER TABLE `Photos`
-    ADD CONSTRAINT `Photos_ibfk_1` FOREIGN KEY (`idRep`) REFERENCES `Repertoires` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+    ALTER TABLE `Photos` ADD CONSTRAINT `Photos_ibfk_1` FOREIGN KEY (`idRep`) REFERENCES `Repertoires` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
