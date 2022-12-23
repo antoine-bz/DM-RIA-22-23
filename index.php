@@ -319,7 +319,7 @@ function convertirDMSenDD($coordinate, $hemisphere)
 {
 	//Convertit la latitude ou la longitude de exif qui est en DMS en degrés décimaux
 	// $coordinate : tableau contenant les valeurs de la latitude ou de la longitude
-	// $hemisphere : référence de la latitude ou de la longitude
+	// $hemisphere : référence d'hemisphere (N ou S pour la latitude et E ou W pour la longitude)'
 
 	//Source : https://stackoverflow.com/questions/2526304/php-extract-gps-exif-data
 
