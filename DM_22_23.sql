@@ -1,3 +1,7 @@
+drop database if exists DM_2022;
+
+create database DM_2022;
+
     /*Table Photos*/
     CREATE TABLE `Photos` (
     `id` int(11) NOT NULL AUTO_INCREMENT,
