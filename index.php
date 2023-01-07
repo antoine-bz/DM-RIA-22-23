@@ -1,15 +1,11 @@
 <?php
 
-//on inclut la bibliotheque sql
-include_once "modele.php";
-include_once "config.php";
+include_once("modele.php");
+include_once("config.php");
 
 
-//Code de la page
-if (isset($_REQUEST["nomRep"])) 
-	$nomRep = $_REQUEST["nomRep"];
-else 
-	$nomRep = false;
+if (isset($_REQUEST["nomRep"]))  $nomRep = $_REQUEST["nomRep"];
+else $nomRep = false;
 
 if (isset($_REQUEST["action"]))
 {
@@ -22,8 +18,9 @@ if (isset($_REQUEST["action"]))
 			// A compléter : Code de création d'un répertoire
 			mkdir("./" . $_GET["nomRep"]);
 
-			// Pour le DM : insérer le répertoire dans la base de données
-			insererRepertoire($_GET["nomRep"]);
+			// DM 2022 : Création du répertoire dans la base de données
+			$nomRep = $_GET["nomRep"];
+			insererRepertoire($nomRep);
 		}
 		break;
 
@@ -38,10 +35,9 @@ if (isset($_REQUEST["action"]))
 			unlink($nomRep . "/" . $fichier);
 	
 			// A compléter : Supprime aussi la miniature si elle existe					
-			unlink($nomRep . "/thumbs/" . $fichier);
-			
+			unlink($nomRep . "/thumbs/" . $fichier);	
 
-			// Pour le DM : supprimer aussi les méta-données dans la base de données
+			// DM 2022 : Suppression du repertoire dans la base de données
 			supprimerPhoto($fichier,$nomRep);
 
 		}
@@ -62,10 +58,10 @@ if (isset($_REQUEST["action"]))
 
 			if (file_exists("./$nomRep/thumbs/$fichier"))			
 				rename("./$nomRep/thumbs/$fichier","./$nomRep/thumbs/$nomFichier");
-			
 
-			// Pour le DM : renommer aussi les méta-données dans la base de données
+			// DM 2022 : Renommer le fichier dans la base de données
 			renommerPhoto($fichier,$nomRep,$nomFichier);
+			
 			
 		}
 		break;
@@ -96,30 +92,44 @@ if (isset($_REQUEST["action"]))
 				// créer la miniature dans ce répertoire 
 				miniature($type,"./$nomRep/$name",200,"./$nomRep/thumbs/$name");
 
-/*************************************************************************************************/
-/******************************* MODIFICATIONS POUR DM *******************************************/
-/*************************************************************************************************/
 
 
-				//Lecture des méta-données exif
-				$exif = exif_read_data("./$nomRep/$name");
+				// DM 2022 : On recupere les informations de la photo en fonction de ses metadonnees exif
+				$nom = $name;
 
-				if(photoExiste($name,$nomRep))
-				{
-					supprimerPhoto($name,$nomRep);
+				// On recuperer les metadonnees de la photo
+				$exif = exif_read_data("./$nomRep/$name", 0, true);
+
+				// On recupere la date de prise de vue
+				$date = $exif['EXIF']['DateTimeOriginal'];
+
+				// On recupere la largeur et la hauteur de la photo
+				$largeur = $exif['COMPUTED']['Width'];
+				$hauteur = $exif['COMPUTED']['Height'];
+
+				// On recupere l'id du repertoire dans lequel se trouve la photo
+				$idRep = getIdRepertoire($nomRep);
+
+				// On recupere la latitude et la longitude de la photo si elle existe
+				if(isset($exif['GPS']['GPSLatitude']) && isset($exif['GPS']['GPSLongitude'])){
+					//Attention, les coordonnées sont stockées sous la forme de fractions, il faut donc les convertir en décimales
+					$latitude = convertDMStoDEC($exif['GPS']['GPSLatitude'], $exif['GPS']['GPSLatitudeRef']);
+					$longitude = convertDMStoDEC($exif['GPS']['GPSLongitude'], $exif['GPS']['GPSLongitudeRef']);
+
+					// On recupere l'adresse de la photo
+					$adresse = getAdresseByGPS($latitude, $longitude);
+
+				}
+				else{
+					$latitude = 0;
+					$longitude = 0;
+					$adresse = "";
 				}
 
-				stockerMetaDonnees($name, $nomRep, $exif);		
-				
-				$photo =getPhoto($name,$nomRep)[0];
+				insererPhoto($nom, $date, $largeur, $hauteur, $latitude, $longitude, $idRep, $adresse,$type);
 
-				
-				ajouterFiligrane($type,"./$nomRep/$name",$photo['date'],$photo['adresse']);	
+				ajouterFiligrane($type,"./$nomRep/$name",$date,$adresse);
 
-/*************************************************************************************************/
-/*************************************************************************************************/
-/*************************************************************************************************/
-				
 			}
 			else
 			{
@@ -166,20 +176,16 @@ if (isset($_REQUEST["action"]))
 						if (!is_dir("./$nomRep/" . $fichier))
 						{
 							unlink("./$nomRep/" . $fichier);
+							supprimerPhoto($fichier, $nomRep);
 						}
+						
 					}
 				}
-
- 
-				// Pour le DM : supprimer les photos de la base de données en fonction du répertoire
-				supprimerPhotos($nomRep);
-				// Pour le DM : supprimer le répertoire de la base de données
+				
 				supprimerRepertoire($nomRep);
-
-
-
 				rmdir("./$nomRep");
 				$nomRep = false;
+
 			}
 		break;
 	}
@@ -234,55 +240,54 @@ function miniature($type,$nom,$dw,$nomMin)
 }
 
 
+/**
+ * Source : https://stackoverflow.com/questions/2526304/php-extract-gps-exif-data 
+ * Convertir des coord de DMS ( Degrees / minutes / seconds ) vers decimal
+ * @param string $coordinate
+ * @param string $hemisphere
+ * @return float
+ */
 
+function convertDMStoDEC($coordinate, $hemisphere) {
 
-
-/*************************************************************************************************/
-/******************************MODIFICATIONS POUR DM**********************************************/
-/*************************************************************************************************/
-//Ici toutes les foctions qui vont nous servir pour le projet
-
-
-
-
-
-function stockerMetaDonnees($nom, $nomRep, $exif)
-{
-	// Stocke les méta-données exif dans la base de données
-	// $nom : nom du fichier
-	// $nomRep : nom du répertoire
-	// $exif : tableau contenant les méta-données exif
-
-	//On récupère la date de la photo si elle existe sinon on met 0
-	if(isset($exif['DateTimeOriginal']))
-	{
-		$date = $exif['DateTimeOriginal'];		
+	if (is_string($coordinate)) {
+	  $coordinate = array_map("trim", explode(",", $coordinate));
 	}
-	else
-	{
-		$date = "0000-00-00 00:00:00";
+	for ($i = 0; $i < 3; $i++) {
+	  $part = explode('/', $coordinate[$i]);
+	  if (count($part) == 1) {
+		$coordinate[$i] = $part[0];
+	  } else if (count($part) == 2) {
+		$coordinate[$i] = floatval($part[0])/floatval($part[1]);
+	  } else {
+		$coordinate[$i] = 0;
+	  }
 	}
-	$date = date("Y-m-d H:i:s", strtotime($date));
-	$largeur = $exif['COMPUTED']['Width'];
-	$hauteur = $exif['COMPUTED']['Height'];
-	if(isset($exif['GPSLatitude']))
-	{
-		//on convertit la latitude de exif qui est en DMS en degrés décimaux
-		$latitude = convertirDMSenDD($exif['GPSLatitude'], $exif['GPSLatitudeRef']);
-		// on convertit la longitude de exif qui est en DMS en degrés décimaux
-		$longitude = convertirDMSenDD($exif['GPSLongitude'], $exif['GPSLongitudeRef']);
-		$adresse = getAdresseByGPS($latitude, $longitude);
-	}
-	else
-	{
-		$longitude = null;
-		$latitude = null;
-		$adresse = null;
-	}
-	$idRepertoire= getIdRepertoire($nomRep);
-	$type=pathinfo($nom, PATHINFO_EXTENSION);
-	$Result= insererPhoto($nom, $date, $largeur, $hauteur, $latitude, $longitude, $idRepertoire, $adresse,$type);
+	list($degrees, $minutes, $seconds) = $coordinate;
+	$sign = ($hemisphere == 'W' || $hemisphere == 'S') ? -1 : 1;
+	return $sign * ($degrees + $minutes/60 + $seconds/3600);
 }
+
+
+/**
+ * Récupère l'adresse à partir des coordonnées GPS
+ * @param float $latitude
+ * @param float $longitude
+ * @return string
+ */
+function getAdresseByGPS($latitude, $longitude)
+{
+	//Récupère l'adresse à partir des coordonnées GPS
+	// $latitude : latitude de la photo
+	// $longitude : longitude de la photo
+
+	global $apiKey;
+
+	//  On fait la requête à l'API de positionstack pour récupérer l'adresse
+	$data= file_get_contents('http://api.positionstack.com/v1/reverse?access_key='.$apiKey.'&query='.$latitude.','.$longitude);
+	return $adresse = json_decode($data)->data[0]->label;
+}
+
 
 function ajouterFiligrane($type,$fichier,$date,$adresse=null)
 {
@@ -301,10 +306,8 @@ function ajouterFiligrane($type,$fichier,$date,$adresse=null)
 	
 	$couleur = imagecolorallocatealpha($im, 255, 255, 255, 50);
 	$size = getimagesize($fichier);
-	$police = "arial.ttf";
 	$largeur = $size[0];
 	$hauteur = $size[1];
-	//$taillePolice = ($largeur/(strlen($date)))*0.25;
 	$taillePolice = ($largeur/75);
 
 	//position de la date
@@ -317,11 +320,11 @@ function ajouterFiligrane($type,$fichier,$date,$adresse=null)
 
 
 	//On ajoute la date
-	imagettftext($im, $taillePolice, 0, $positionXdate, $positionYdate, $couleur, $police, $date);
+	imagettftext($im, $taillePolice, 0, $positionXdate, $positionYdate, $couleur, "./arial.ttf", $date);
 
 	//on ajoute l'adresse
 	if($adresse!=null)
-		imagettftext($im, $taillePolice, 0, $positionXadresse, $positionYadresse, $couleur, $police, $adresse);
+		imagettftext($im, $taillePolice, 0, $positionXadresse, $positionYadresse, $couleur, "./arial.ttf", $adresse);
 	
 	//On enregistre l'image
 	switch($type)
@@ -336,61 +339,7 @@ function ajouterFiligrane($type,$fichier,$date,$adresse=null)
 
 }
 
-function convertirDMSenDD($coordinate, $hemisphere)
-{
-	//Convertit la latitude ou la longitude de exif qui est en DMS en degrés décimaux
-	// $coordinate : tableau contenant les valeurs de la latitude ou de la longitude
-	// $hemisphere : référence d'hemisphere (N ou S pour la latitude et E ou W pour la longitude)'
-
-	//Source : https://stackoverflow.com/questions/2526304/php-extract-gps-exif-data
-
-	if (is_string($coordinate)) {
-		$coordinate = array_map("trim", explode(",", $coordinate));
-	  }
-	  for ($i = 0; $i < 3; $i++) {
-		$part = explode('/', $coordinate[$i]);
-		if (count($part) == 1) {
-		  $coordinate[$i] = $part[0];
-		} else if (count($part) == 2) {
-		  $coordinate[$i] = floatval($part[0])/floatval($part[1]);
-		} else {
-		  $coordinate[$i] = 0;
-		}
-	  }
-	  list($degrees, $minutes, $seconds) = $coordinate;
-	  $sign = ($hemisphere == 'W' || $hemisphere == 'S') ? -1 : 1;
-	  return $sign * ($degrees + $minutes/60 + $seconds/3600);
-}
-
-
-function getAdresseByGPS($latitude, $longitude)
-{
-	//Récupère l'adresse à partir des coordonnées GPS
-	// $latitude : latitude de la photo
-	// $longitude : longitude de la photo
-
-	global $apiKey;
-
-	//  On fait la requête à l'API de positionstack pour récupérer l'adresse
-	$data= file_get_contents('http://api.positionstack.com/v1/reverse?access_key='.$apiKey.'&query='.$latitude.','.$longitude);
-	return $adresse = json_decode($data)->data[0]->label;
-}
-
-
-/*************************************************************************************************/
-/*************************************************************************************************/
-/*************************************************************************************************/
-
 ?>
-
-
-
-
-
-
-
-
-
 
 <html>
 <head>
@@ -458,14 +407,7 @@ div div
 			// Pour éliminer les autres fichiers du menu déroulant, 
 			// on dispose de la fonction 'is_dir'
 			if (is_dir("./" . $fichier))
-			{
 				printf("<option value=\"$fichier\">$fichier</option>");
-
-
-				// Pour le DM : Si le répertoire n'existe pas dans la base de données, on l'ajoute
-				if (!repertoireExiste($fichier)) insererRepertoire($fichier);
-			}
-
 		}
 	}
 	closedir($rep);
@@ -487,11 +429,12 @@ div div
 	<input type="hidden" name="MAX_FILE_SIZE" value="10000000">
 	<input type="hidden" name="nomRep" value="<?php echo $nomRep; ?>">
 	<label>Ajouter un fichier image : </label>
-	<input type="file" name="FileToUpload" accept="image/jpeg, image/gif, image/png, image/jpg">
+	<input type="file" name="FileToUpload">
 	<input type="submit" value="Uploader" name="action">
 </form>
 
 <?php
+	if(!repertoireExiste($nomRep)) insererRepertoire($nomRep);
 
 	$numImage = 0;
 	$rep = opendir("./$nomRep"); 		// ouverture du repertoire 
@@ -510,20 +453,12 @@ div div
 				if (strstr($formats,strrchr($fichier,"."))) 
 				{
 					$numImage++;
-
-					// Pour le DM : Si l'image n'existe pas dans la base de données, on l'ajoute
-					if(!isset(getPhoto($fichier,$nomRep)[0])){
-						stockerMetaDonnees($fichier, $nomRep, exif_read_data("./$nomRep/$fichier"));
-					}
-
-					// Pour le DM : On récupère les métadonnées de l'image
-					$dataImg = getPhoto($fichier,$nomRep)[0];
-
+					$dataImg = getimagesize("./$nomRep/$fichier"); 
 
 					// A compléter : récupérer le type d'une image, et sa taille 
-					$width= $dataImg["largeur"];
-					$height= $dataImg["hauteur"]; 
-					$type= $dataImg["type"];
+					$width= $dataImg[0];
+					$height= $dataImg[1]; 
+					$type= substr($dataImg["mime"],6);
 
 					// A compléter : On cherche si une miniature existe pour l'afficher...
 					// Si non, on crée éventuellement le répertoire des miniatures, 
@@ -534,13 +469,18 @@ div div
 					echo "<div>$fichier \n";			
 					echo "<a href=\"?nomRep=$nomRep&fichier=$fichier&action=Supprimer\" >Supp</a>\n";
 					echo "<br />($width * $height $type)\n";
-
-
-					// Pour le DM : On affiche la date de prise de vue de l'image
-					$date = $dataImg["date"];
-					echo "<br />$date\n";
 					echo "<br />\n";
 
+					// DM 2022 : On récupère les données de l'image
+					if(photoExiste($fichier,$nomRep)){
+						
+					$data = getPhoto($fichier,$nomRep)[0];
+
+					// DM 2022 : On ajoute la date de prise de vue
+
+					echo $data["date"];
+					echo "<br />\n";
+				}
 					echo "<form>\n";
 					echo "<input type=\"hidden\" name=\"fichier\" value=\"$fichier\" />\n";
 					echo "<input type=\"hidden\" name=\"nomRep\" value=\"$nomRep\" />\n";

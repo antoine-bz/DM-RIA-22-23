@@ -1,6 +1,6 @@
-drop database if exists DM_2022;
+    drop database if exists DM_2022;
 
-create database DM_2022;
+    create database DM_2022;
 
     /*Table Photos*/
     CREATE TABLE `Photos` (
@@ -26,5 +26,4 @@ create database DM_2022;
 
 
     /*relation entre les photos et les répertoires*/
-    ALTER TABLE `Photos`
-    ADD CONSTRAINT `Photos_ibfk_1` FOREIGN KEY (`idRep`) REFERENCES `Repertoires` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+    ALTER TABLE `Photos` FOREIGN KEY (`idRep`) REFERENCES `Repertoires` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
